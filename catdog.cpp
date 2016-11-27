@@ -8,6 +8,7 @@ using namespace std;
 
 struct BFSinfo;
 struct vertex {
+    int nodeid;
     char keep[3];
     char remove[3];
     vector<vertex*> adjList;
@@ -21,7 +22,7 @@ struct BFSinfo {
 };
 
 bool operator==(const vertex& lhs, const vertex& rhs) {
-    return (!strcmp(lhs.keep, rhs.keep) && !strcmp(lhs.remove, rhs.remove) && lhs.adjList == rhs.adjList);
+    return (lhs.nodeid == rhs.nodeid);
 }
 
 struct edge {
@@ -31,7 +32,7 @@ struct edge {
 };
 
 bool operator==(const edge& lhs, const edge& rhs) {
-    return (lhs.u == rhs.u && lhs.v == rhs.v && lhs.capacity == rhs.capacity && lhs.flow == rhs.flow);
+    return (lhs.u == rhs.u && lhs.v == rhs.v);
 }
 
 struct graph {
@@ -51,24 +52,28 @@ void printGraph(graph* G) {
 
 void initGraph(graph* G) {
     vertex* source = new vertex;
+    source->nodeid = 0;
     strcpy(source->keep, "so");
     strcpy(source->remove,"so");
     source->bfs = new BFSinfo;
     G->V.push_back(source);
 
     vertex* sink = new vertex;
+    sink->nodeid = 1;
     strcpy(sink->keep, "si");
     strcpy(sink->remove, "si");
     sink->bfs = new BFSinfo;
     G->V.push_back(sink);
 }
 
-edge* edgeInGraph(graph* G, edge* e) {
+edge* edgeInGraph(graph* G, int unodeid, int vnodeid) {
+    edge temp;
+    temp.u->nodeid = unodeid;
+    temp.v->nodeid = vnodeid;
     for (int i = 0; i < G->E.size(); i++) {
-        if (*G->E[i] == *e) return G->E[i];
-        else return NULL;
+        if (*G->E[i] == temp) return G->E[i];
     }
-    return false;
+    return NULL;
 }
 
 bool hasConflict(vertex* catlover, vertex* doglover) {
@@ -80,21 +85,22 @@ bool hasConflict(vertex* catlover, vertex* doglover) {
 }
 
 int residualCapacity(graph* G, vertex* u, vertex* v) {
-    for (int i = 0; i < G->E.size(); i++) {
-        if (G->E[i]->u == u && G->E[i]->v == v) {
-            return (G->E[i]->capacity - G->E[i]->flow);
-        } else if (G->E[i]->u == v && G->E[i]->v == u) {
-            return G->E[i]->flow;
-        } else {
-            return 0;
-        }
+    edge* temp;
+    if (temp = edgeInGraph(G, u->nodeid, v->nodeid)) {
+        return temp->capacity - temp->flow;
+    } else if (temp = edgeInGraph(G, v->nodeid, u->nodeid)) {
+        return temp->flow;
+    } else {
+        return 0;
     }
 }
 
 int capacity(graph* G, vertex* u, vertex* v) {
-    for (int i = 0; i < G->E.size(); i++) {
-        if (*G->E[i]->u == *u && *G->E[i]->v == *v) return G->E[i]->capacity;
+    edge* temp;
+    if (temp = edgeInGraph(G, u->nodeid, v->nodeid)) {
+        return temp->capacity;
     }
+    return INT_MIN;
 }
 
 graph* buildResidualGraph(graph* G) {
@@ -187,10 +193,12 @@ void edmonds_karp(graph* G, vertex* s, vertex* t) {
     while (path != NULL) {
         int pathMinCapacity = min(path);
         for (int i = 0; i < path->E.size(); i++) {
-            if (edgeInGraph(G, path->E[i])) {
-                path->E[i]->flow = path->E[i]->flow + pathMinCapacity;
+            edge* temp = edgeInGraph(G, path->E[i]->u->nodeid, path->E[i]->v->nodeid);
+            if (temp) {
+                path->E[i]->flow += pathMinCapacity;
             } else {
-                edge* temp = edgeInGraph(path, )
+                temp = edgeInGraph(path, temp->v->nodeid, temp->u->nodeid);
+                temp->flow -= pathMinCapacity;
             }
         }
     }
@@ -217,6 +225,7 @@ int main() {
             keep[2] = '\0';
             remove[2] = '\0';
             temp = new vertex;
+            temp->nodeid = j + 2;  // have to add 2 because source and sink have 0 and 1
             strcpy(temp->keep, keep);
             strcpy(temp->remove, remove);
             temp->bfs = new BFSinfo;
@@ -227,7 +236,7 @@ int main() {
         for (int j = 0; j < G.V.size(); j++) {
             for (int k = (j + 1); k < G.V.size(); k++) {
                 // add an edge from source to each cat lover
-                if (!strcmp(G.V[j]->keep, "so") && G.V[k]->keep[0] == 'C') {
+                if (G.V[j]->nodeid == 0 && G.V[k]->keep[0] == 'C') {
                     edge* temp = new edge;
                     temp->u = G.V[j];
                     temp->v = G.V[k];
@@ -237,7 +246,7 @@ int main() {
                     G.V[j]->adjList.push_back(G.V[k]);
                     G.V[k]->adjList.push_back(G.V[j]);
                 // add an edge from each dog lover to sink
-            } else if (!strcmp(G.V[j]->keep, "si") && G.V[k]->keep[0] == 'D') {
+            } else if (G.V[j]->nodeid == 1 && G.V[k]->keep[0] == 'D') {
                     edge* temp = new edge;
                     temp->u = G.V[k];
                     temp->v = G.V[j];
