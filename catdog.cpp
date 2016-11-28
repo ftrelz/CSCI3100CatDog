@@ -32,7 +32,7 @@ struct edge {
 };
 
 bool operator==(const edge& lhs, const edge& rhs) {
-    return (lhs.u == rhs.u && lhs.v == rhs.v);
+    return (*(lhs.u) == *(rhs.u) && *(lhs.v) == *(rhs.v));
 }
 
 struct graph {
@@ -42,11 +42,11 @@ struct graph {
 
 void printGraph(graph* G) {
     for (int i = 0; i < G->V.size(); i++) {
-        printf("vertex %d:\nkeep: %s\nremove: %s\n\n", i + 1, G->V[i]->keep, G->V[i]->remove);
+        printf("vertexid %d:\nkeep: %s\nremove: %s\n\n", G->V[i]->nodeid, G->V[i]->keep, G->V[i]->remove);
     }
 
     for (int i = 0; i < G->E.size(); i++) {
-        printf("edge %d:\nu: %s %s\nv: %s %s\n capacity: %d\n\n", i + 1, G->E[i]->u->keep, G->E[i]->u->remove, G->E[i]->v->keep, G->E[i]->v->remove, G->E[i]->capacity);
+        printf("edge %d:\nu: %d\nv: %d\n capacity: %d\n\n", i + 1, G->E[i]->u->nodeid, G->E[i]->v->nodeid, G->E[i]->capacity);
     }
 }
 
@@ -68,11 +68,19 @@ void initGraph(graph* G) {
 
 edge* edgeInGraph(graph* G, int unodeid, int vnodeid) {
     edge temp;
+    temp.u = new vertex;
+    temp.v = new vertex;
     temp.u->nodeid = unodeid;
     temp.v->nodeid = vnodeid;
     for (int i = 0; i < G->E.size(); i++) {
-        if (*G->E[i] == temp) return G->E[i];
+        if (*G->E[i] == temp) {
+            delete temp.u;
+            delete temp.v;
+            return G->E[i];
+        }
     }
+    delete temp.u;
+    delete temp.v;
     return NULL;
 }
 
@@ -107,15 +115,17 @@ graph* buildResidualGraph(graph* G) {
     graph* Gf = new graph;
     for (int i = 0; i < G->V.size(); i++) {
         Gf->V.push_back(G->V[i]);
-        for (int j = (i + 1); j < G->V.size(); j++) {
-            int capacity = residualCapacity(G, G->V[i], G->V[j]);
-            if (capacity) {
-                edge* temp = new edge;
-                temp->u = G->V[i];
-                temp->v = G->V[j];
-                temp->capacity = capacity;
-                temp->flow = 0;
-                G->E.push_back(temp);
+        for (int j = 0; j < G->V.size(); j++) {
+            if (i != j) {
+                int capacity = residualCapacity(G, G->V[i], G->V[j]);
+                if (capacity) {
+                    edge* temp = new edge;
+                    temp->u = G->V[i];
+                    temp->v = G->V[j];
+                    temp->capacity = capacity;
+                    temp->flow = 0;
+                    Gf->E.push_back(temp);
+                }
             }
         }
     }
@@ -156,23 +166,15 @@ graph* BFS(graph* G, vertex* s, vertex* d) {
             path->V.push_back(d);
             vertex* parent = d->bfs->parent;
             while (parent != NULL) {
-                edge* temp = new edge;
-                temp->u = parent;
-                temp->v = path->V.back();
+                edge* temp = edgeInGraph(G, parent->nodeid, path->V.back()->nodeid);
+                if (!temp) return NULL; // there was no path from d to s
                 path->E.push_back(temp);
                 path->V.push_back(parent);
                 parent = parent->bfs->parent;
             }
         }
     }
-
-    // there was no path from s to d
-    if (path->V.back() != s) {
-        delete path;
-        return NULL;
-    } else {
-        return path;
-    }
+    return path;
 }
 
 int min(graph* path) {
@@ -183,7 +185,7 @@ int min(graph* path) {
     return min;
 }
 
-void edmonds_karp(graph* G, vertex* s, vertex* t) {
+graph* edmonds_karp(graph* G, vertex* s, vertex* t) {
     for (int i = 0; i < G->E.size(); i++) {
         G->E[i]->flow = 0;
     }
@@ -195,13 +197,25 @@ void edmonds_karp(graph* G, vertex* s, vertex* t) {
         for (int i = 0; i < path->E.size(); i++) {
             edge* temp = edgeInGraph(G, path->E[i]->u->nodeid, path->E[i]->v->nodeid);
             if (temp) {
-                path->E[i]->flow += pathMinCapacity;
+                temp->flow += pathMinCapacity;
             } else {
-                temp = edgeInGraph(path, temp->v->nodeid, temp->u->nodeid);
+                temp = edgeInGraph(G, temp->v->nodeid, temp->u->nodeid);
                 temp->flow -= pathMinCapacity;
             }
         }
+        Gf = buildResidualGraph(G);
+        path = BFS(Gf, s, t);
     }
+    // if there is no path from s to t in residual network (Gf) then we have
+    // found the maximum flow and its corresponding residual network
+    return Gf;
+}
+
+bool inVector(vector<vertex*>* data, vertex* u) {
+    for (int i = 0; i < data->size(); i++) {
+        if ((*data)[i] == u) return true;
+    }
+    return false;
 }
 
 int main() {
@@ -268,7 +282,18 @@ int main() {
                 }
             }
         }
-        //printGraph(&G);
-        edmonds_karp(&G, G.V[0], G.V[1]);
+
+        graph* Gf = edmonds_karp(&G, G.V[0], G.V[1]);
+        vector<vertex*> vertexCoverCats, vertexCoverDogs;
+
+        for (int j = 2; j < Gf->V.size(); j++) {
+            edge* temp = edgeInGraph(Gf, Gf->V[0], Gf->V[j]);
+            if (temp && Gf->V[j]->keep[0] == 'C') vertexCoverCats.push_back(Gf->V[j]);
+        }
+
+        for (int j = 0; j < vertexCoverCats.size(); j++) {
+            edge* temp = edgeInGraph(Gf, vertexCoverCats[j], )
+        }
+        printf("%d\n", vertexCover.size());
     }
 }
