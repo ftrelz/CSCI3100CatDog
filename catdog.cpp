@@ -157,24 +157,22 @@ graph* BFS(graph* G, vertex* s, vertex* d) {
             }
         }
         strcpy(u->bfs->color, "BLACK");
+        if (*u == *d) break;
     }
 
     // find and return shortest path from source to destination
     graph* path = new graph;
-    for (int i = 0; i < G->V.size(); i++) {
-        if (G->V[i] == d) {
-            path->V.push_back(d);
-            vertex* parent = d->bfs->parent;
-            while (parent != NULL) {
-                edge* temp = edgeInGraph(G, parent->nodeid, path->V.back()->nodeid);
-                if (!temp) return NULL; // there was no path from d to s
-                path->E.push_back(temp);
-                path->V.push_back(parent);
-                parent = parent->bfs->parent;
-            }
-        }
+    path->V.push_back(d);
+    while (path->V.back()->bfs->parent != NULL) {
+        edge* temp = edgeInGraph(G, path->V.back()->bfs->parent->nodeid, path->V.back()->nodeid);
+        path->E.push_back(temp);
+        path->V.push_back(path->V.back()->bfs->parent);
     }
-    return path;
+    if (path->V.back()->nodeid == s->nodeid) {
+        return path;
+    } else {
+        return NULL;
+    }
 }
 
 int min(graph* path) {
@@ -185,12 +183,32 @@ int min(graph* path) {
     return min;
 }
 
+void updateAdjList(graph* G) {
+    for (int i = 0; i < G->V.size(); i++) {
+        G->V[i]->adjList.clear();
+    }
+    for (int i = 0; i < G->E.size(); i++) {
+        G->E[i]->u->adjList.push_back(G->E[i]->v);
+    }
+    /*for (int i = 0; i < G->E.size(); i++) {
+        edge* temp = G->E[i];
+        if (temp->u->keep[0] == 'C' && temp->v->keep[0] == 'D') {
+            temp->u->adjList.push_back(temp->v);
+        } else if (temp->u->nodeid == 0) {
+            temp->u->adjList.push_back(temp->v);
+        } else if (temp->v->nodeid == 1) {
+            temp->u->adjList.push_back(temp->v);
+        }
+    }*/
+}
+
 graph* edmonds_karp(graph* G, vertex* s, vertex* t) {
     for (int i = 0; i < G->E.size(); i++) {
         G->E[i]->flow = 0;
     }
 
     graph* Gf = buildResidualGraph(G);
+    updateAdjList(Gf);
     graph* path = BFS(Gf, s, t);
     while (path != NULL) {
         int pathMinCapacity = min(path);
@@ -199,11 +217,12 @@ graph* edmonds_karp(graph* G, vertex* s, vertex* t) {
             if (temp) {
                 temp->flow += pathMinCapacity;
             } else {
-                temp = edgeInGraph(G, temp->v->nodeid, temp->u->nodeid);
+                temp = edgeInGraph(G, path->E[i]->v->nodeid, path->E[i]->u->nodeid);
                 temp->flow -= pathMinCapacity;
             }
         }
         Gf = buildResidualGraph(G);
+        updateAdjList(Gf);
         path = BFS(Gf, s, t);
     }
     // if there is no path from s to t in residual network (Gf) then we have
@@ -260,7 +279,7 @@ int main() {
                     G.V[j]->adjList.push_back(G.V[k]);
                     G.V[k]->adjList.push_back(G.V[j]);
                 // add an edge from each dog lover to sink
-            } else if (G.V[j]->nodeid == 1 && G.V[k]->keep[0] == 'D') {
+                } else if (G.V[j]->nodeid == 1 && G.V[k]->keep[0] == 'D') {
                     edge* temp = new edge;
                     temp->u = G.V[k];
                     temp->v = G.V[j];
@@ -284,16 +303,19 @@ int main() {
         }
 
         graph* Gf = edmonds_karp(&G, G.V[0], G.V[1]);
-        vector<vertex*> vertexCoverCats, vertexCoverDogs;
+        updateAdjList(Gf);
 
+        vector<vertex*> vertexCover;
+        graph* path;
         for (int j = 2; j < Gf->V.size(); j++) {
-            edge* temp = edgeInGraph(Gf, Gf->V[0], Gf->V[j]);
-            if (temp && Gf->V[j]->keep[0] == 'C') vertexCoverCats.push_back(Gf->V[j]);
+            path = BFS(Gf, Gf->V[0], Gf->V[j]);
+            if (Gf->V[j]->keep[0] == 'C' && !path) vertexCover.push_back(Gf->V[j]);
+            else if (Gf->V[j]->keep[0] == 'D' && path) vertexCover.push_back(Gf->V[j]);
         }
 
-        for (int j = 0; j < vertexCoverCats.size(); j++) {
-            edge* temp = edgeInGraph(Gf, vertexCoverCats[j], )
-        }
-        printf("%d\n", vertexCover.size());
+	/*for (int j = 0; j < vertexCover.size(); j++) {
+            printf("id: %d\n%s %s\n\n", vertexCover[j]->nodeid, vertexCover[j]->keep, vertexCover[j]->remove);
+        }*/
+        printf("%d\n", Gf->V.size() - 2 - vertexCover.size());
     }
 }
