@@ -67,20 +67,11 @@ void initGraph(graph* G) {
 }
 
 edge* edgeInGraph(graph* G, int unodeid, int vnodeid) {
-    edge temp;
-    temp.u = new vertex;
-    temp.v = new vertex;
-    temp.u->nodeid = unodeid;
-    temp.v->nodeid = vnodeid;
     for (int i = 0; i < G->E.size(); i++) {
-        if (*G->E[i] == temp) {
-            delete temp.u;
-            delete temp.v;
+        if (G->E[i]->u->nodeid == unodeid && G->E[i]->v->nodeid == vnodeid) {
             return G->E[i];
         }
     }
-    delete temp.u;
-    delete temp.v;
     return NULL;
 }
 
@@ -153,11 +144,11 @@ graph* BFS(graph* G, vertex* s, vertex* d) {
                 strcpy(u->adjList[i]->bfs->color, "GRAY");
                 u->adjList[i]->bfs->d += 1;
                 u->adjList[i]->bfs->parent = u;
+                if (*(u->adjList[i]) == *d) break;
                 Q.push(u->adjList[i]);
             }
         }
         strcpy(u->bfs->color, "BLACK");
-        if (*u == *d) break;
     }
 
     // find and return shortest path from source to destination
@@ -175,14 +166,6 @@ graph* BFS(graph* G, vertex* s, vertex* d) {
     }
 }
 
-int min(graph* path) {
-    int min = INT_MAX;
-    for (int i = 0; i < path->E.size(); i++) {
-        if (path->E[i]->capacity < min) min = path->E[i]->capacity;
-    }
-    return min;
-}
-
 void updateAdjList(graph* G) {
     for (int i = 0; i < G->V.size(); i++) {
         G->V[i]->adjList.clear();
@@ -190,16 +173,6 @@ void updateAdjList(graph* G) {
     for (int i = 0; i < G->E.size(); i++) {
         G->E[i]->u->adjList.push_back(G->E[i]->v);
     }
-    /*for (int i = 0; i < G->E.size(); i++) {
-        edge* temp = G->E[i];
-        if (temp->u->keep[0] == 'C' && temp->v->keep[0] == 'D') {
-            temp->u->adjList.push_back(temp->v);
-        } else if (temp->u->nodeid == 0) {
-            temp->u->adjList.push_back(temp->v);
-        } else if (temp->v->nodeid == 1) {
-            temp->u->adjList.push_back(temp->v);
-        }
-    }*/
 }
 
 graph* edmonds_karp(graph* G, vertex* s, vertex* t) {
@@ -208,10 +181,10 @@ graph* edmonds_karp(graph* G, vertex* s, vertex* t) {
     }
 
     graph* Gf = buildResidualGraph(G);
-    updateAdjList(Gf);
+    //updateAdjList(Gf);
     graph* path = BFS(Gf, s, t);
     while (path != NULL) {
-        int pathMinCapacity = min(path);
+        int pathMinCapacity = 1;
         for (int i = 0; i < path->E.size(); i++) {
             edge* temp = edgeInGraph(G, path->E[i]->u->nodeid, path->E[i]->v->nodeid);
             if (temp) {
@@ -222,7 +195,7 @@ graph* edmonds_karp(graph* G, vertex* s, vertex* t) {
             }
         }
         Gf = buildResidualGraph(G);
-        updateAdjList(Gf);
+        //updateAdjList(Gf);
         path = BFS(Gf, s, t);
     }
     // if there is no path from s to t in residual network (Gf) then we have
@@ -303,19 +276,16 @@ int main() {
         }
 
         graph* Gf = edmonds_karp(&G, G.V[0], G.V[1]);
-        updateAdjList(Gf);
+        //updateAdjList(Gf);
 
         vector<vertex*> vertexCover;
         graph* path;
         for (int j = 2; j < Gf->V.size(); j++) {
-            path = BFS(Gf, Gf->V[0], Gf->V[j]);
+            //path = BFS(Gf, Gf->V[0], Gf->V[j]);
             if (Gf->V[j]->keep[0] == 'C' && !path) vertexCover.push_back(Gf->V[j]);
             else if (Gf->V[j]->keep[0] == 'D' && path) vertexCover.push_back(Gf->V[j]);
         }
 
-	/*for (int j = 0; j < vertexCover.size(); j++) {
-            printf("id: %d\n%s %s\n\n", vertexCover[j]->nodeid, vertexCover[j]->keep, vertexCover[j]->remove);
-        }*/
         printf("%d\n", Gf->V.size() - 2 - vertexCover.size());
     }
 }
