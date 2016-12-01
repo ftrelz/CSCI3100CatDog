@@ -181,7 +181,7 @@ graph* edmonds_karp(graph* G, vertex* s, vertex* t) {
     }
 
     graph* Gf = buildResidualGraph(G);
-    //updateAdjList(Gf);
+    updateAdjList(Gf);
     graph* path = BFS(Gf, s, t);
     while (path != NULL) {
         int pathMinCapacity = 1;
@@ -195,7 +195,7 @@ graph* edmonds_karp(graph* G, vertex* s, vertex* t) {
             }
         }
         Gf = buildResidualGraph(G);
-        //updateAdjList(Gf);
+        updateAdjList(Gf);
         path = BFS(Gf, s, t);
     }
     // if there is no path from s to t in residual network (Gf) then we have
@@ -210,6 +210,13 @@ bool inVector(vector<vertex*>* data, vertex* u) {
     return false;
 }
 
+bool inVector(vector<char*>* data, char* string) {
+    for (int i = 0; i < data->size(); i++) {
+        if (!strcmp((*data)[i], string)) return true;
+    }
+    return false;
+}
+
 int main() {
     freopen("samples/sample.in", "r", stdin);
     int numgames, numcats, numdogs, numvoters;
@@ -217,7 +224,6 @@ int main() {
 
     for (int i = 0; i < numgames; i++) {
         scanf("%d %d %d\n", &numcats, &numdogs, &numvoters);
-        printf("numcats = %d, numdogs = %d, numvoters = %d\n", numcats, numdogs, numvoters);
 
         char keep[3], remove[3];
 
@@ -240,7 +246,7 @@ int main() {
 
         // setup edges of graph
         for (int j = 0; j < G.V.size(); j++) {
-            for (int k = (j + 1); k < G.V.size(); k++) {
+            for (int k = 0; k < G.V.size(); k++) {
                 // add an edge from source to each cat lover
                 if (G.V[j]->nodeid == 0 && G.V[k]->keep[0] == 'C') {
                     edge* temp = new edge;
@@ -262,7 +268,7 @@ int main() {
                     G.V[j]->adjList.push_back(G.V[k]);
                     G.V[k]->adjList.push_back(G.V[j]);
                 // add an edge for each pair of conflicting nodes
-                } else if (hasConflict(G.V[j], G.V[k])) {
+                } else if (G.V[j]->keep[0] == 'C' && G.V[k]->keep[0] == 'D' && hasConflict(G.V[j], G.V[k])) {
                     edge* temp = new edge;
                     temp->u = G.V[j];
                     temp->v = G.V[k];
@@ -274,17 +280,39 @@ int main() {
                 }
             }
         }
-
+        
         graph* Gf = edmonds_karp(&G, G.V[0], G.V[1]);
-        //updateAdjList(Gf);
+        updateAdjList(Gf);
 
         vector<vertex*> vertexCover;
         graph* path;
         for (int j = 2; j < Gf->V.size(); j++) {
-            //path = BFS(Gf, Gf->V[0], Gf->V[j]);
+            path = BFS(Gf, Gf->V[0], Gf->V[j]);
             if (Gf->V[j]->keep[0] == 'C' && !path) vertexCover.push_back(Gf->V[j]);
             else if (Gf->V[j]->keep[0] == 'D' && path) vertexCover.push_back(Gf->V[j]);
         }
+
+	vector<char*> keepAnimals;
+	for (int j = 0; j < G.V.size(); j++) {
+            if (!inVector(&vertexCover, G.V[j]) && G.V[j]->nodeid != 0 && G.V[j]->nodeid != 1) {
+                if (!inVector(&keepAnimals, G.V[j]->keep)) {
+                    char* temp = new char[3];
+		    strcpy(temp, G.V[j]->keep);
+		    keepAnimals.push_back(temp);
+		}
+	    }
+	}
+        
+	fprintf(stderr, "Animals to keep:\n");
+	for (int j = 0; j < keepAnimals.size(); j++) {
+            fprintf(stderr, "%s\n", keepAnimals[j]);
+	}
+	fprintf(stderr, "Happy people:\n");
+	for (int j = 0; j < G.V.size(); j++) {
+            if (!inVector(&vertexCover, G.V[j]) && G.V[j]->nodeid != 0 && G.V[j]->nodeid != 1) {
+                fprintf(stderr, "Happy person: %s %s\n", G.V[j]->keep, G.V[j]->remove);
+	    }
+	}
 
         printf("%d\n", Gf->V.size() - 2 - vertexCover.size());
     }
