@@ -1,3 +1,5 @@
+My program is structured according to the following:
+
 1) Parse input
 	- #cats #dogs #voters
 	  keep_pet cut_pet
@@ -5,12 +7,12 @@
 2) Create bipartite graph
 	- Dog lovers on right half, cat lovers on left
 	- Create source on left with a single edge to each cat lover
-		- edge weight of 1
+		- edge weights of 1
 	- Create source on right with a single edge from each dog lover
-		- edge weight of 1
+		- edge weights of 1
 	- Create one "conflict" edge between each pair of cat lover and dog lover
 	  that cannot both be satisfied
-		- edge weight of 1
+		- edge weights of 1
 3) Use conflict graph and its residual graph to find answer
 	- Answer is two-fold:
 		1) Maximum possible number of satisfied voters
@@ -25,22 +27,10 @@
 		   and, consequently, which voters will be happy
 			- there is no correct standard for this
 
-BFS(G, s):
-for each vertex u e G.V - {s}:
-    u.color = WHITE
-    u.d = inf
-    u.pi = NIL
-s.color = GRAY
-s.d = 0
-s.pi = NIL
-Q = {}
-ENQUEUE(Q, s)
-while Q is not {}:
-    u = DEQUEUE(Q)
-    for each v e G.Adj[u]
-        if v.color == WHITE
-            v.color = GRAY
-            v.d = v.d + 1
-            v.pi = u
-            ENQUEUE(Q, v)
-    u.color = BLACK
+Uniqueness of implementation:
+  - All interesting modifications are outlined in comments in the code
+
+Correctness:
+  - I was unable to get my code to run within the Kattis time limit so I can only
+    say that it is correct with the five examples we were provided.
+
